@@ -19,6 +19,7 @@ import shutil
 import tempfile
 import time
 import urllib.request
+import uuid
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
@@ -229,12 +230,55 @@ def transcribe_url(url: str) -> dict:
         shutil.rmtree(work, ignore_errors=True)
 
 
+# ── async job queue ──────────────────────────────────────────────────────────────────────────────────
+# Transcription can outlast a proxy's response timeout (Cloudflare's free edge cuts at ~100s). So the API
+# hands back a job id immediately, a background task does the work under the shared concurrency limit, and the
+# client polls /api/job/{id}. In-memory store is fine for a single-worker uvicorn; jobs are pruned by age.
+JOBS: dict[str, dict] = {}
+
+
+def _prune_jobs() -> None:
+    now = time.time()
+    for k in [k for k, v in JOBS.items()
+              if v.get("status") in ("done", "error") and now - v.get("updated", now) > 3600]:
+        JOBS.pop(k, None)
+    if len(JOBS) > 300:                       # hard cap — drop the oldest
+        for k in sorted(JOBS, key=lambda k: JOBS[k].get("created", 0))[:len(JOBS) - 300]:
+            JOBS.pop(k, None)
+
+
+def _queue_position(job_id: str) -> int:
+    """1 = running/next; higher = further back in line among unfinished jobs."""
+    created = JOBS.get(job_id, {}).get("created", 0)
+    ahead = sum(1 for v in JOBS.values()
+                if v.get("status") in ("queued", "running") and v.get("created", 0) < created)
+    return ahead + 1
+
+
+async def _process_job(job_id: str, url: str) -> None:
+    async with _sem:                          # queue behind any running job (protects the CPU)
+        job = JOBS.get(job_id)
+        if job is None:
+            return
+        job.update(status="running", updated=time.time())
+        t0 = time.time()
+        try:
+            res = await asyncio.to_thread(transcribe_url, url)
+            res["elapsed_s"] = round(time.time() - t0, 1)
+            job.update(status="done", result=res, updated=time.time())
+        except DurationError as e:
+            job.update(status="error", error=str(e), updated=time.time())
+        except Exception as e:  # noqa: BLE001
+            job.update(status="error", error=str(e), updated=time.time())
+
+
 # ── API ─────────────────────────────────────────────────────────────────────────────────────────────
 app = FastAPI(title="SCRIBE — video → transcript")
 
 
 @app.post("/api/transcribe")
 async def api_transcribe(req: Request):
+    """Create a transcription job and return its id immediately; the client polls /api/job/{id}."""
     try:
         body = await req.json()
     except Exception:
@@ -242,16 +286,26 @@ async def api_transcribe(req: Request):
     url = (body.get("url") or "").strip()
     if not url.startswith("http"):
         return JSONResponse({"ok": False, "error": "paste a full video URL (starting with http)."}, status_code=400)
-    t0 = time.time()
-    try:
-        async with _sem:                       # one heavy job at a time on a small box
-            res = await asyncio.to_thread(transcribe_url, url)
-    except DurationError as e:
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=413)
-    except Exception as e:  # noqa: BLE001
-        return JSONResponse({"ok": False, "error": str(e)}, status_code=502)
-    res["elapsed_s"] = round(time.time() - t0, 1)
-    return JSONResponse(res)
+    _prune_jobs()
+    job_id = uuid.uuid4().hex[:12]
+    JOBS[job_id] = {"status": "queued", "created": time.time(), "updated": time.time()}
+    asyncio.create_task(_process_job(job_id, url))
+    return JSONResponse({"ok": True, "job_id": job_id, "status": "queued",
+                         "position": _queue_position(job_id)}, status_code=202)
+
+
+@app.get("/api/job/{job_id}")
+def api_job(job_id: str):
+    """Poll a transcription job. Always 200 when the job exists (status carries the state)."""
+    job = JOBS.get(job_id)
+    if job is None:
+        return JSONResponse({"ok": False, "status": "not_found",
+                             "error": "job not found or expired"}, status_code=404)
+    if job["status"] == "done":
+        return JSONResponse({"ok": True, "status": "done", "result": job["result"]})
+    if job["status"] == "error":
+        return JSONResponse({"ok": False, "status": "error", "error": job.get("error", "transcription failed")})
+    return JSONResponse({"ok": True, "status": job["status"], "position": _queue_position(job_id)})
 
 
 @app.post("/api/ai")

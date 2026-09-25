@@ -94,15 +94,20 @@ python scribe.py
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `SCRIBE_MODEL` | `base.en` | Whisper model (`base`/`small` = multilingual) |
-| `SCRIBE_MAX_DURATION` | `1800` | Max clip length in seconds (`0` = no cap) |
+| `SCRIBE_MAX_DURATION` | `1800` | Max clip length in seconds (`0` = no cap); async queue means no proxy-timeout ceiling |
 | `SCRIBE_MAX_CONCURRENT` | `1` | Concurrent transcriptions |
 | `GROQ_API_KEY` / `SCRIBE_LLM_KEY` | — | Enables AI features |
 | `SCRIBE_LLM_BASE` | `https://api.groq.com/openai/v1` | OpenAI-compatible base URL |
 | `SCRIBE_LLM_MODEL` | `openai/gpt-oss-120b` | Chat model |
 
+## How transcription is served (async job queue)
+`POST /api/transcribe` doesn't block — it creates a job and returns `{ job_id }` immediately (`202`). A
+background task runs the download + transcription under the concurrency limit, and the client polls
+`GET /api/job/{id}` until it reports `done` (with the full result) or `error`. This sidesteps proxy response
+timeouts (Cloudflare's free edge cuts at ~100s) entirely, so clip length is bounded only by the box's CPU —
+`SCRIBE_MAX_DURATION` is 30 min by default here. The poll response also reports queue `position`.
+
 ## Known limitations
-- **Cloudflare's free edge cuts responses at ~100s.** Behind a tunnel, keep `SCRIBE_MAX_DURATION` low (e.g.
-  120s) or move transcription to an async job model to lift it.
 - **Some platforms (TikTok, Instagram, X) block headless/server fetches** or require login cookies. A logged-in
   desktop can supply them via `cookiesfrombrowser`; a headless server usually can't. Public sources like
   YouTube work server-side.

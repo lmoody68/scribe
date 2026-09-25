@@ -246,18 +246,39 @@ button.go:disabled{opacity:.7;cursor:not-allowed}
 <script>
 const $=id=>document.getElementById(id);
 let DATA=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function go(){
   const url=$('url').value.trim();
   if(!url.startsWith('http')){ showErr('Paste a full video URL (starting with http).'); return; }
   $('err').style.display='none'; $('result').style.display='none';
-  $('btn').disabled=true; $('status').style.display='flex';
+  $('btn').disabled=true; $('status').style.display='flex'; setStatus('starting');
   try{
     const r=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
     const d=await r.json();
-    if(!d.ok){ showErr(d.error||'Could not transcribe that link.'); return; }
-    DATA=d; showResult();
+    if(!d.ok || !d.job_id){ showErr(d.error||'Could not start transcription.'); return; }
+    await pollJob(d.job_id);
   }catch(e){ showErr('Something went wrong: '+e.message); }
   finally{ $('btn').disabled=false; $('status').style.display='none'; }
+}
+function setStatus(state, position){
+  const el=$('statustxt');
+  if(state==='running') el.textContent='Transcribing… longer videos can take a few minutes.';
+  else if(state==='queued' && position>1) el.textContent='Queued — #'+position+' in line…';
+  else el.textContent='Pulling audio & preparing…';
+}
+async function pollJob(id){
+  const started=Date.now(), MAX=20*60*1000;   // give up after 20 minutes
+  while(Date.now()-started < MAX){
+    await sleep(2500);
+    let d;
+    try{ const r=await fetch('/api/job/'+encodeURIComponent(id)); d=await r.json(); }
+    catch(e){ continue; }                      // transient network hiccup — keep polling
+    if(d.status==='done'){ DATA=d.result; showResult(); return; }
+    if(d.status==='error'){ showErr(d.error||'Transcription failed.'); return; }
+    if(d.status==='not_found'){ showErr('That job expired — please try again.'); return; }
+    setStatus(d.status, d.position);
+  }
+  showErr('This is taking longer than expected — please try again.');
 }
 function showErr(m){ $('err').textContent='⚠ '+m; $('err').style.display='block'; }
 function fmtDur(s){ if(s==null)return''; s=Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
