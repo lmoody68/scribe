@@ -126,6 +126,24 @@ def run_ai(body: dict) -> str:
         segs = body.get("segments") or []
         timed = "\n".join(f"[{int(s['start'])}s] {s['text']}" for s in segs)[:16000]
         return _extract_json(_llm(_AI_SYS["clips"], timed or text, 1100, 0.5))
+    if task == "translate":
+        lang = (body.get("lang") or "Spanish").strip()[:40]
+        segs = body.get("segments") or []
+        if segs:
+            # translate segment-by-segment (one call) so timings survive → translated SRT/VTT
+            lines = "\n".join(f"{i + 1}. {s['text']}" for i, s in enumerate(segs))[:16000]
+            sysp = (f"Translate each numbered line into {lang}. Return STRICT JSON ONLY — an array of strings, "
+                    f"the SAME length and order as the input, each the translation of that line. No numbering, "
+                    f"no prose, no code fences.")
+            arr = _extract_json(_llm(sysp, lines, 2200, 0.3))
+            if isinstance(arr, list) and len(arr) == len(segs):
+                tsegs = [{"start": s["start"], "end": s["end"], "text": str(t).strip()}
+                         for s, t in zip(segs, arr)]
+                return {"language": lang, "segments": tsegs,
+                        "text": " ".join(x["text"] for x in tsegs).strip()}
+        # no segments, or the array didn't line up → translate the plain text
+        whole = _llm(f"Translate the following into {lang}. Output ONLY the translation.", text, 2000, 0.3)
+        return {"language": lang, "segments": [], "text": whole}
     raise ValueError(f"unknown AI task: {task!r}")
 
 

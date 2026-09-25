@@ -131,6 +131,12 @@ button.go:disabled{opacity:.7;cursor:not-allowed}
 .clipcopy{margin-top:9px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--dim);
   border-radius:9px;padding:6px 11px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .clipcopy:hover{border-color:var(--violet);color:var(--ink)}
+/* ── translation ── */
+.transhead{font-family:var(--display);font-weight:700;font-size:15px;margin-bottom:10px}
+.transdl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;font-size:12.5px;color:var(--dim)}
+.transdl button{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--violet);border-radius:9px;padding:6px 11px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.transdl button:hover{border-color:var(--violet)}
+.transbody{max-height:42vh;overflow:auto}
 .foot{color:var(--mute);font-size:12.5px;margin-top:22px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
 .foot svg{width:14px;height:14px;color:var(--ok)}
 @media(max-width:560px){.field{flex-direction:column}button.go{padding:14px}.word{font-size:34px}.pill.title b{max-width:22ch}.chatrow{flex-direction:column}}
@@ -209,6 +215,14 @@ button.go:disabled{opacity:.7;cursor:not-allowed}
               <option value="x">X thread</option>
               <option value="linkedin">LinkedIn post</option>
               <option value="newsletter">Newsletter</option>
+            </select>
+          </span>
+          <span class="repgrp">
+            <button onclick="ai('translate')">🌐 Translate →</button>
+            <select id="transLang">
+              <option>Spanish</option><option>French</option><option>German</option><option>Italian</option>
+              <option>Portuguese</option><option>Dutch</option><option>Japanese</option><option>Korean</option>
+              <option>Chinese (Simplified)</option><option>Hindi</option><option>Arabic</option><option>Russian</option>
             </select>
           </span>
         </div>
@@ -308,6 +322,7 @@ async function ai(task){
   const d=DATA; if(!d)return;
   const body={task, text:d.text, segments:d.segments, title:d.title, source:d.source};
   if(task==='repurpose') body.target=$('repTarget').value;
+  if(task==='translate') body.lang=$('transLang').value;
   if(task==='chat'){ body.question=$('chatq').value.trim(); if(!body.question){ $('chatq').focus(); return; } }
   $('aistatus').style.display='flex'; $('aiout').style.display='none'; disableAi(true);
   try{
@@ -315,6 +330,7 @@ async function ai(task){
     const j=await r.json();
     if(!j.ok){ AIOUT=''; $('aiout').innerHTML='<p class="aierr">⚠ '+esc(j.error||'AI request failed')+'</p>'; }
     else if(j.task==='clips' && Array.isArray(j.result)){ AIOUT=''; $('aiout').innerHTML=renderClips(j.result); }
+    else if(j.task==='translate' && j.result){ AIOUT=j.result.text||''; $('aiout').innerHTML=renderTranslation(j.result); }
     else{ AIOUT=(typeof j.result==='string')?j.result:JSON.stringify(j.result,null,2); $('aiout').innerHTML='<div class="aicard"><button class="aicopy" onclick="copyAi()" title="Copy">📋</button>'+mdLite(AIOUT)+'</div>'; }
     $('aiout').style.display='block';
   }catch(e){ $('aiout').innerHTML='<p class="aierr">⚠ '+esc(e.message)+'</p>'; $('aiout').style.display='block'; }
@@ -342,6 +358,27 @@ function copyClip(btn,i){
   const c=CLIPSDATA[i]||{}; const tags=(c.hashtags||[]).map(h=>'#'+String(h).replace(/^#+/,'')).join(' ');
   const cap=(c.caption||'')+(tags?'\n\n'+tags:'');
   navigator.clipboard.writeText(cap); btn.textContent='✓ Copied'; setTimeout(()=>btn.textContent='📋 Copy caption',1300);
+}
+let TRANSLATED=null;
+function buildSrt(segs){return segs.map((s,i)=>`${i+1}\n${clock(s.start,',')} --> ${clock(s.end,',')}\n${(s.text||'').trim()}\n`).join('\n');}
+function buildVtt(segs){return 'WEBVTT\n\n'+segs.map(s=>`${clock(s.start,'.')} --> ${clock(s.end,'.')}\n${(s.text||'').trim()}\n`).join('\n');}
+function renderTranslation(res){
+  TRANSLATED=res;
+  const hasSegs=Array.isArray(res.segments)&&res.segments.length;
+  const dls=hasSegs?`<div class="transdl"><span>Download translated:</span><button onclick="dlTrans('srt')">↓ SRT</button><button onclick="dlTrans('vtt')">↓ VTT</button><button onclick="dlTrans('txt')">↓ TXT</button></div>`
+    :`<div class="transdl"><span>Download translated:</span><button onclick="dlTrans('txt')">↓ TXT</button></div>`;
+  const bodyHtml=hasSegs
+    ? res.segments.map(s=>`<div class="seg"><span class="t">${ts(s.start)}</span><span>${esc(s.text)}</span></div>`).join('')
+    : `<p>${esc(res.text||'')}</p>`;
+  return `<div class="aicard"><div class="transhead">🌐 Translated to ${esc(res.language||'')}</div>${dls}<div class="transbody">${bodyHtml}</div></div>`;
+}
+function dlTrans(fmt){
+  const t=TRANSLATED; if(!t)return; const segs=t.segments||[]; let content='';
+  if(fmt==='txt') content=t.text||segs.map(s=>s.text).join(' ');
+  else if(fmt==='srt') content=buildSrt(segs);
+  else if(fmt==='vtt') content=buildVtt(segs);
+  const lang=(t.language||'translated').toLowerCase().replace(/[^a-z]+/g,'').slice(0,12)||'translated';
+  saveBlob(content, baseName()+'.'+lang+'.'+fmt, fmt==='txt'?'text/plain':'text/plain');
 }
 function mdLite(t){
   let h=esc(t);
