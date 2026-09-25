@@ -59,7 +59,28 @@ _AI_SYS = {
                  "first-line hook, short punchy paragraphs, a clear takeaway, and 3 relevant hashtags at the end."),
     "newsletter": ("You are a newsletter editor. Turn this transcript into an email section: a subject line, a "
                    "warm intro, key insights as short paragraphs/bullets, and a one-line sign-off."),
+    "clips": ("You find the most shareable short-video moments in a timestamped transcript. Return STRICT JSON "
+              "ONLY — no prose, no code fences: an array of 3–6 objects, each with keys \"start\" (seconds, "
+              "integer), \"end\" (seconds, integer), \"title\" (a hook of ≤ 8 words), \"reason\" (one line on "
+              "why it grabs attention — emotion, insight, or a strong quote), \"caption\" (a ready-to-post "
+              "caption), and \"hashtags\" (array of 3–5 tags, no # sign). Each clip is 15–30 seconds long and "
+              "uses only timestamps within the transcript. Order the array best-first."),
 }
+
+
+def _extract_json(raw: str):
+    """Pull a JSON array/object out of an LLM reply (tolerates code fences / stray prose)."""
+    s = raw.strip()
+    if s.startswith("```"):
+        s = s.strip("`")
+        s = s[s.find("\n") + 1:] if "\n" in s else s
+    a, b = s.find("["), s.rfind("]")
+    if a != -1 and b > a:
+        try:
+            return json.loads(s[a:b + 1])
+        except Exception:  # noqa: BLE001
+            pass
+    return raw   # fall back to raw text if it isn't parseable JSON
 
 
 def _llm(system: str, user: str, max_tokens: int = 900, temperature: float = 0.4) -> str:
@@ -101,6 +122,10 @@ def run_ai(body: dict) -> str:
     if task == "repurpose":
         target = (body.get("target") or "blog").lower()
         return _llm(_AI_SYS.get(target, _AI_SYS["blog"]), text, 1300)
+    if task == "clips":
+        segs = body.get("segments") or []
+        timed = "\n".join(f"[{int(s['start'])}s] {s['text']}" for s in segs)[:16000]
+        return _extract_json(_llm(_AI_SYS["clips"], timed or text, 1100, 0.5))
     raise ValueError(f"unknown AI task: {task!r}")
 
 

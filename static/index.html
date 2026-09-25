@@ -116,6 +116,21 @@ button.go:disabled{opacity:.7;cursor:not-allowed}
 .aicopy{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer}
 .aicopy:hover{border-color:var(--violet);color:var(--ink)}
 .aierr{color:var(--bad)}
+/* ── viral-clip cards ── */
+.clips{display:grid;gap:12px}
+.clip{background:rgba(8,6,15,.55);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.cliptop{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.cliprank{width:22px;height:22px;flex:none;display:grid;place-items:center;border-radius:7px;
+  background:linear-gradient(180deg,var(--violet),var(--violet-2));color:#fff;font-weight:800;font-size:12px;font-family:var(--mono)}
+.cliptime{color:var(--cyan);font-family:var(--mono);font-size:12.5px;text-decoration:none}
+.cliptime:hover{text-decoration:underline}
+.cliptitle{font-family:var(--display);font-weight:700;font-size:15.5px;margin-bottom:3px}
+.clipreason{color:var(--dim);font-size:13px;margin-bottom:9px}
+.clipcap{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:13.5px;white-space:pre-wrap}
+.cliptags{color:var(--violet);margin-top:6px;font-size:12.5px}
+.clipcopy{margin-top:9px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--dim);
+  border-radius:9px;padding:6px 11px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.clipcopy:hover{border-color:var(--violet);color:var(--ink)}
 .foot{color:var(--mute);font-size:12.5px;margin-top:22px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
 .foot svg{width:14px;height:14px;color:var(--ok)}
 @media(max-width:560px){.field{flex-direction:column}button.go{padding:14px}.word{font-size:34px}.pill.title b{max-width:22ch}.chatrow{flex-direction:column}}
@@ -186,6 +201,7 @@ button.go:disabled{opacity:.7;cursor:not-allowed}
         <div class="aibtns">
           <button onclick="ai('summary')">Summarize</button>
           <button onclick="ai('chapters')">Chapters</button>
+          <button onclick="ai('clips')">🔥 Find clips</button>
           <span class="repgrp">
             <button onclick="ai('repurpose')">Repurpose →</button>
             <select id="repTarget">
@@ -298,13 +314,35 @@ async function ai(task){
     const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const j=await r.json();
     if(!j.ok){ AIOUT=''; $('aiout').innerHTML='<p class="aierr">⚠ '+esc(j.error||'AI request failed')+'</p>'; }
-    else{ AIOUT=j.result; $('aiout').innerHTML='<div class="aicard"><button class="aicopy" onclick="copyAi()" title="Copy">📋</button>'+mdLite(j.result)+'</div>'; }
+    else if(j.task==='clips' && Array.isArray(j.result)){ AIOUT=''; $('aiout').innerHTML=renderClips(j.result); }
+    else{ AIOUT=(typeof j.result==='string')?j.result:JSON.stringify(j.result,null,2); $('aiout').innerHTML='<div class="aicard"><button class="aicopy" onclick="copyAi()" title="Copy">📋</button>'+mdLite(AIOUT)+'</div>'; }
     $('aiout').style.display='block';
   }catch(e){ $('aiout').innerHTML='<p class="aierr">⚠ '+esc(e.message)+'</p>'; $('aiout').style.display='block'; }
   finally{ $('aistatus').style.display='none'; disableAi(false); }
 }
 function disableAi(x){document.querySelectorAll('.ai button,.ai select,.ai input').forEach(el=>el.disabled=x);}
 function copyAi(){ if(!AIOUT)return; navigator.clipboard.writeText(AIOUT); const b=document.querySelector('.aicopy'); if(b){b.textContent='✓';setTimeout(()=>b.textContent='📋',1200);} }
+let CLIPSDATA=[];
+function renderClips(clips){
+  if(!Array.isArray(clips)||!clips.length) return '<div class="aicard"><p>No standout clips found — try a longer clip.</p></div>';
+  CLIPSDATA=clips;
+  return '<div class="clips">'+clips.map((c,i)=>{
+    const tags=(c.hashtags||[]).map(h=>'#'+String(h).replace(/^#+/,'')).join(' ');
+    const range=ts(c.start||0)+' – '+ts(c.end||0);
+    return `<div class="clip">
+      <div class="cliptop"><span class="cliprank">${i+1}</span><a class="cliptime" href="${escAttr(srcAt(c.start||0))}" target="_blank" rel="noopener">▶ ${range}</a></div>
+      <div class="cliptitle">${esc(c.title||'Clip '+(i+1))}</div>
+      ${c.reason?`<div class="clipreason">${esc(c.reason)}</div>`:''}
+      <div class="clipcap">${esc(c.caption||'')}${tags?`<div class="cliptags">${esc(tags)}</div>`:''}</div>
+      <button class="clipcopy" onclick="copyClip(this,${i})">📋 Copy caption</button>
+    </div>`;
+  }).join('')+'</div>';
+}
+function copyClip(btn,i){
+  const c=CLIPSDATA[i]||{}; const tags=(c.hashtags||[]).map(h=>'#'+String(h).replace(/^#+/,'')).join(' ');
+  const cap=(c.caption||'')+(tags?'\n\n'+tags:'');
+  navigator.clipboard.writeText(cap); btn.textContent='✓ Copied'; setTimeout(()=>btn.textContent='📋 Copy caption',1300);
+}
 function mdLite(t){
   let h=esc(t);
   h=h.replace(/^### (.*)$/gm,'<h4>$1</h4>').replace(/^## (.*)$/gm,'<h3>$1</h3>').replace(/^# (.*)$/gm,'<h2>$1</h2>');

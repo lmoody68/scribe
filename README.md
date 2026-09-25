@@ -39,6 +39,8 @@ Once you have a transcript, one click transforms it:
 - **Summarize** — TL;DR + key points
 - **Chapters** — timestamped section list (like YouTube chapters)
 - **Repurpose** — turn it into a blog post, X/Twitter thread, LinkedIn post, or newsletter
+- **Find clips** — surfaces the best 15–30s shareable moments as ranked cards (hook title, why it pops, a
+  ready-to-post caption + hashtags, and a link that jumps to that moment in the source video)
 - **Chat** — ask a question, answered *strictly from the transcript*
 
 > **Privacy note:** transcription is always local. The AI features send the transcript **text** to an
