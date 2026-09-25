@@ -1,0 +1,317 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SCRIBE — Video to Transcript</title>
+<link rel="icon" href="/logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08060f; --bg2:#0e0a1e; --panel:rgba(23,18,42,.72); --panel-solid:#14102a;
+  --line:rgba(150,120,255,.16); --line-2:rgba(150,120,255,.28);
+  --ink:#f2eefb; --dim:#b7abd6; --mute:#7a6f99;
+  --violet:#9b7bff; --violet-2:#6d3fe0; --cyan:#34e3ff; --ok:#4ce6a0; --warn:#ffcf6b; --bad:#ff8fa3;
+  --display:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Inter',system-ui,Segoe UI,Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --shadow:0 24px 70px -18px rgba(0,0,0,.75); --glow:0 0 40px rgba(123,90,255,.35);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg); color:var(--ink); font:15px/1.6 var(--body); -webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(900px 520px at 82% -8%, rgba(123,63,224,.38), transparent 60%),
+    radial-gradient(760px 480px at 8% 4%, rgba(52,227,255,.14), transparent 55%),
+    radial-gradient(1200px 900px at 50% 120%, rgba(123,63,224,.16), transparent 60%);
+  min-height:100vh;
+}
+.wrap{max-width:860px;margin:0 auto;padding:clamp(26px,5vw,54px) 18px 80px}
+/* ── header / brand ── */
+header{text-align:center;margin-bottom:26px}
+.brand{display:inline-flex;align-items:center;gap:13px;text-decoration:none}
+.mark{width:60px;height:60px;filter:drop-shadow(0 10px 24px rgba(123,63,224,.55))}
+.word{font-family:var(--display);font-weight:800;font-size:40px;letter-spacing:.5px;line-height:1;
+  background:linear-gradient(100deg,#fff 20%,var(--violet) 60%,var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.tag{color:var(--dim);margin:16px auto 0;font-size:17px;max-width:30ch;text-wrap:balance}
+.plats{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;margin-top:16px}
+.chip{font-size:11.5px;font-weight:600;letter-spacing:.2px;color:var(--dim);
+  border:1px solid var(--line);background:rgba(255,255,255,.03);padding:4px 10px;border-radius:999px}
+.chip.more{color:var(--violet);border-color:var(--line-2)}
+/* ── input card ── */
+.card{background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+.field{display:flex;gap:11px;align-items:stretch}
+.inwrap{flex:1;position:relative;display:flex;align-items:center}
+.inwrap svg{position:absolute;left:15px;width:18px;height:18px;color:var(--mute);pointer-events:none}
+input{width:100%;background:rgba(8,6,15,.6);border:1px solid var(--line);border-radius:14px;
+  padding:15px 15px 15px 42px;color:var(--ink);font:inherit;font-size:15.5px;transition:border-color .18s,box-shadow .18s}
+input::placeholder{color:var(--mute)}
+input:focus{outline:none;border-color:var(--violet);box-shadow:0 0 0 4px rgba(123,90,255,.16)}
+button.go{position:relative;background:linear-gradient(180deg,var(--violet),var(--violet-2));color:#fff;border:0;
+  border-radius:14px;padding:0 26px;font-family:var(--display);font-weight:700;font-size:16px;cursor:pointer;
+  white-space:nowrap;box-shadow:var(--glow);transition:transform .12s,filter .18s}
+button.go:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08)}
+button.go:active:not(:disabled){transform:translateY(0)}
+button.go:disabled{opacity:.7;cursor:not-allowed}
+/* ── live status w/ animated waveform ── */
+.status{margin-top:16px;display:none;align-items:center;gap:13px;color:var(--dim);font-size:14px}
+.eq{display:flex;align-items:center;gap:3px;height:22px;flex:none}
+.eq span{width:3px;height:100%;border-radius:2px;background:linear-gradient(var(--cyan),var(--violet));
+  animation:eq 1s ease-in-out infinite}
+.eq span:nth-child(2){animation-delay:.15s}.eq span:nth-child(3){animation-delay:.3s}
+.eq span:nth-child(4){animation-delay:.45s}.eq span:nth-child(5){animation-delay:.6s}
+@keyframes eq{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+@media(prefers-reduced-motion:reduce){.eq span{animation:none;transform:scaleY(.6)}}
+.err{margin-top:15px;color:var(--bad);background:rgba(255,77,110,.08);border:1px solid rgba(255,77,110,.3);
+  border-radius:13px;padding:13px 15px;font-size:14px;display:none}
+/* ── result ── */
+.result{margin-top:18px;display:none;animation:rise .4s ease}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.meta{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:14px}
+.pill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);border:1px solid var(--line);
+  border-radius:999px;padding:6px 12px;font-size:12.5px;color:var(--dim)}
+.pill b{color:var(--ink);font-weight:600;font-family:var(--mono)}
+.pill.title{background:linear-gradient(90deg,rgba(123,90,255,.16),rgba(52,227,255,.08));border-color:var(--line-2);color:var(--ink);max-width:100%}
+.pill.title b{font-family:var(--body);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:44ch}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:center}
+.tools button,.tools a{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);
+  border:1px solid var(--line);color:var(--ink);border-radius:11px;padding:9px 13px;font:inherit;font-size:13px;
+  font-weight:600;cursor:pointer;text-decoration:none;transition:border-color .16s,background .16s,transform .1s}
+.tools button:hover,.tools a:hover{border-color:var(--violet);background:rgba(123,90,255,.1)}
+.tools button:active{transform:scale(.97)}
+.tools .dl{color:var(--violet)}
+.copied{color:var(--ok)!important;border-color:var(--ok)!important;background:rgba(76,230,160,.1)!important}
+.toggle{margin-left:auto;color:var(--dim);display:inline-flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;user-select:none}
+.toggle input{width:auto;padding:0;accent-color:var(--violet)}
+.transcript{background:rgba(8,6,15,.55);border:1px solid var(--line);border-radius:16px;padding:18px 20px;
+  max-height:54vh;overflow:auto;white-space:pre-wrap;line-height:1.8;font-size:15px}
+.transcript::-webkit-scrollbar{width:10px}.transcript::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}
+.seg{display:flex;gap:14px;padding:4px 0}
+.seg .t{color:var(--cyan);font-family:var(--mono);font-size:12px;flex:none;min-width:56px;padding-top:2px}
+.tools select{background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--ink);border-radius:11px;
+  padding:9px 11px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.tools select:hover{border-color:var(--violet)}
+/* ── AI panel ── */
+.ai{margin-top:16px;border-top:1px solid var(--line);padding-top:16px}
+.aihead{font-family:var(--display);font-weight:700;font-size:15px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.aidim{font-family:var(--body);font-weight:400;font-size:11.5px;color:var(--mute)}
+.aibtns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0 4px}
+.ai button{background:linear-gradient(180deg,rgba(123,90,255,.24),rgba(109,63,224,.16));border:1px solid var(--line-2);
+  color:var(--ink);border-radius:11px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:filter .15s}
+.ai button:hover:not(:disabled){filter:brightness(1.18)}
+.ai button:disabled{opacity:.5;cursor:not-allowed}
+.repgrp{display:inline-flex;gap:6px;align-items:center}
+.ai select{background:rgba(8,6,15,.6);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 10px;font:inherit;font-size:13px}
+.chatrow{display:flex;gap:8px;margin:8px 0 2px}
+.chatrow input{flex:1;background:rgba(8,6,15,.6);border:1px solid var(--line);border-radius:11px;padding:11px 13px;color:var(--ink);font:inherit;font-size:14px}
+.chatrow input:focus{outline:none;border-color:var(--violet)}
+.aistatus{display:none;align-items:center;gap:10px;color:var(--dim);font-size:13px;margin-top:12px}
+.aiout{display:none;margin-top:12px}
+.aicard{position:relative;background:rgba(8,6,15,.55);border:1px solid var(--line);border-radius:14px;padding:16px 44px 16px 18px;font-size:14.5px;line-height:1.7}
+.aicard h2{font-family:var(--display);font-size:19px;margin:.2em 0 .4em}
+.aicard h3{font-family:var(--display);font-size:16px;margin:.8em 0 .3em;color:var(--violet)}
+.aicard h4{font-size:14px;margin:.7em 0 .2em}
+.aicard ul{margin:.3em 0 .3em 1.1em;padding:0}.aicard li{margin:.25em 0}
+.aicard p{margin:.5em 0}.aicard b{color:#fff}
+.aicopy{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--dim);border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer}
+.aicopy:hover{border-color:var(--violet);color:var(--ink)}
+.aierr{color:var(--bad)}
+.foot{color:var(--mute);font-size:12.5px;margin-top:22px;text-align:center;display:flex;align-items:center;justify-content:center;gap:8px}
+.foot svg{width:14px;height:14px;color:var(--ok)}
+@media(max-width:560px){.field{flex-direction:column}button.go{padding:14px}.word{font-size:34px}.pill.title b{max-width:22ch}.chatrow{flex-direction:column}}
+</style></head>
+<body><div class="wrap">
+  <header>
+    <a class="brand" href="/">
+      <svg class="mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9b7bff"/><stop offset=".55" stop-color="#6d3fe0"/><stop offset="1" stop-color="#4b2fc0"/></linearGradient>
+          <linearGradient id="sw" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#c9b8ff"/><stop offset="1" stop-color="#34e3ff"/></linearGradient>
+        </defs>
+        <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#sg)"/>
+        <rect x="2" y="2" width="60" height="30" rx="17" fill="#fff" opacity=".08"/>
+        <g fill="url(#sw)"><rect x="12" y="27" width="3" height="10" rx="1.5"/><rect x="17.5" y="22" width="3" height="20" rx="1.5"/><rect x="43.5" y="22" width="3" height="20" rx="1.5"/><rect x="49" y="27" width="3" height="10" rx="1.5"/></g>
+        <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><rect x="27" y="13" width="10" height="19" rx="5" fill="#fff" stroke="none"/><path d="M22 29 a10 10 0 0 0 20 0"/><path d="M32 39 v7"/><path d="M26 46 h12"/></g>
+      </svg>
+      <span class="word">SCRIBE</span>
+    </a>
+    <p class="tag">Paste any video link → get a transcript you can download &amp; reuse anywhere.</p>
+    <div class="plats">
+      <span class="chip">TikTok</span><span class="chip">YouTube</span><span class="chip">Instagram</span>
+      <span class="chip">X</span><span class="chip">Facebook</span><span class="chip">Vimeo</span>
+      <span class="chip">Reddit</span><span class="chip">Twitch</span><span class="chip">News</span>
+      <span class="chip more">+ 1000 more</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <div class="inwrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
+        <input id="url" type="url" placeholder="Paste a video URL (https://…)" autocomplete="off"
+               onkeydown="if(event.key==='Enter')go()">
+      </div>
+      <button class="go" id="btn" onclick="go()">Transcribe</button>
+    </div>
+    <div class="status" id="status">
+      <span class="eq"><span></span><span></span><span></span><span></span><span></span></span>
+      <span id="statustxt">Pulling audio &amp; transcribing… a minute-long clip takes ~30–60s.</span>
+    </div>
+    <div class="err" id="err"></div>
+
+    <div class="result" id="result">
+      <div class="meta" id="meta"></div>
+      <div class="tools">
+        <button onclick="copyText()" id="copyBtn">📋 Copy</button>
+        <button class="dl" onclick="dl('txt')">↓ TXT</button>
+        <button class="dl" onclick="dl('srt')">↓ SRT</button>
+        <button class="dl" onclick="dl('vtt')">↓ VTT</button>
+        <button class="dl" onclick="dl('md')">↓ Markdown</button>
+        <button class="dl" onclick="dl('json')">↓ JSON</button>
+        <select class="dl" id="moreFmt" onchange="moreDl(this.value); this.selectedIndex=0" title="More formats">
+          <option value="">＋ more…</option>
+          <option value="csv">CSV (spreadsheet)</option>
+          <option value="docx">DOCX (Word)</option>
+          <option value="html">HTML (clickable timestamps)</option>
+          <option value="sbv">SBV (YouTube captions)</option>
+          <option value="ttml">TTML (broadcast / Final Cut)</option>
+        </select>
+        <a id="srcLink" href="#" target="_blank" rel="noopener">▶ Original</a>
+        <label class="toggle"><input type="checkbox" id="tsToggle" onchange="render()"> timestamps</label>
+      </div>
+      <div class="transcript" id="transcript"></div>
+
+      <div class="ai">
+        <div class="aihead">✨ AI tools <span class="aidim">powered by Groq — transcript text is sent to the LLM</span></div>
+        <div class="aibtns">
+          <button onclick="ai('summary')">Summarize</button>
+          <button onclick="ai('chapters')">Chapters</button>
+          <span class="repgrp">
+            <button onclick="ai('repurpose')">Repurpose →</button>
+            <select id="repTarget">
+              <option value="blog">Blog post</option>
+              <option value="x">X thread</option>
+              <option value="linkedin">LinkedIn post</option>
+              <option value="newsletter">Newsletter</option>
+            </select>
+          </span>
+        </div>
+        <div class="chatrow">
+          <input id="chatq" placeholder="Ask a question about this video…" autocomplete="off"
+                 onkeydown="if(event.key==='Enter')ai('chat')">
+          <button onclick="ai('chat')">Ask</button>
+        </div>
+        <div class="aistatus" id="aistatus"><span class="eq"><span></span><span></span><span></span><span></span><span></span></span> Thinking…</div>
+        <div class="aiout" id="aiout"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="foot">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    Transcribed locally with Whisper — the audio and transcript never touch a cloud service.
+  </p>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let DATA=null;
+async function go(){
+  const url=$('url').value.trim();
+  if(!url.startsWith('http')){ showErr('Paste a full video URL (starting with http).'); return; }
+  $('err').style.display='none'; $('result').style.display='none';
+  $('btn').disabled=true; $('status').style.display='flex';
+  try{
+    const r=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})});
+    const d=await r.json();
+    if(!d.ok){ showErr(d.error||'Could not transcribe that link.'); return; }
+    DATA=d; showResult();
+  }catch(e){ showErr('Something went wrong: '+e.message); }
+  finally{ $('btn').disabled=false; $('status').style.display='none'; }
+}
+function showErr(m){ $('err').textContent='⚠ '+m; $('err').style.display='block'; }
+function fmtDur(s){ if(s==null)return''; s=Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function showResult(){
+  const d=DATA;
+  $('meta').innerHTML=[
+    d.title?`<span class="pill title">📹 <b>${esc(d.title)}</b></span>`:'',
+    d.uploader?`<span class="pill">by <b>${esc(d.uploader)}</b></span>`:'',
+    d.duration?`<span class="pill">⏱ <b>${fmtDur(d.duration)}</b></span>`:'',
+    d.language?`<span class="pill">🗣 <b>${esc(d.language)}</b></span>`:'',
+    `<span class="pill">📝 <b>${d.words}</b> words</span>`,
+    d.elapsed_s?`<span class="pill">⚡ <b>${d.elapsed_s}s</b></span>`:'',
+  ].filter(Boolean).join('');
+  $('srcLink').href=d.source||'#';
+  render(); $('result').style.display='block';
+}
+function render(){
+  const d=DATA; if(!d)return;
+  if($('tsToggle').checked){
+    $('transcript').innerHTML=d.segments.map(s=>
+      `<div class="seg"><span class="t">${ts(s.start)}</span><span>${esc(s.text)}</span></div>`).join('');
+  }else{ $('transcript').textContent=d.text; }
+}
+function ts(sec){const m=Math.floor(sec/60),s=Math.floor(sec%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');}
+function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
+function copyText(){
+  navigator.clipboard.writeText(DATA.text).then(()=>{const b=$('copyBtn');b.classList.add('copied');b.textContent='✓ Copied';setTimeout(()=>{b.classList.remove('copied');b.textContent='📋 Copy';},1500);});
+}
+function baseName(){const d=DATA;return (d.title||'transcript').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'_').slice(0,60)||'transcript';}
+function saveBlob(content,filename,mime){const blob=new Blob([content],{type:mime+';charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+function pad(n,w){return String(n).padStart(w,'0');}
+function clock(sec,sep){const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=Math.floor(sec%60),ms=Math.round((sec-Math.floor(sec))*1000);return pad(h,2)+':'+pad(m,2)+':'+pad(s,2)+sep+pad(ms,3);}
+function escXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escAttr(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function srcAt(start){const s=DATA.source||'';if(!s)return '#';return /youtu/.test(s)?(s+(s.includes('?')?'&':'?')+'t='+Math.floor(start)+'s'):s;}
+
+function dl(fmt){
+  const d=DATA; if(!d)return; let content='',ext=fmt,mime='text/plain';
+  if(fmt==='txt') content=d.text;
+  else if(fmt==='srt') content=d.srt;
+  else if(fmt==='vtt') content=d.vtt;
+  else if(fmt==='md'){ content=`# ${d.title||'Transcript'}\n\n`+(d.uploader?`**Source:** ${d.uploader} — ${d.source}\n\n`:'')+d.text+'\n'; }
+  else if(fmt==='json'){ mime='application/json'; content=JSON.stringify({title:d.title,uploader:d.uploader,source:d.source,language:d.language,duration:d.duration,words:d.words,text:d.text,segments:d.segments},null,2); }
+  else if(fmt==='csv'){ mime='text/csv'; const q=t=>'"'+String(t).replace(/"/g,'""')+'"'; content='start,end,text\n'+d.segments.map(s=>[s.start.toFixed(3),s.end.toFixed(3),q(s.text)].join(',')).join('\n')+'\n'; }
+  else if(fmt==='sbv'){ content=d.segments.map(s=>clock(s.start,'.')+','+clock(s.end,'.')+'\n'+s.text).join('\n\n')+'\n'; }
+  else if(fmt==='ttml'){ mime='application/ttml+xml'; const body=d.segments.map(s=>`      <p begin="${clock(s.start,'.')}" end="${clock(s.end,'.')}">${escXml(s.text)}</p>`).join('\n'); content=`<?xml version="1.0" encoding="UTF-8"?>\n<tt xmlns="http://www.w3.org/ns/ttml" xml:lang="${d.language||'en'}">\n  <body><div>\n${body}\n  </div></body>\n</tt>\n`; }
+  else if(fmt==='html'){ mime='text/html'; const rows=d.segments.map(s=>`<tr><td><a href="${escAttr(srcAt(s.start))}" target="_blank" rel="noopener">${ts(s.start)}</a></td><td>${esc(s.text)}</td></tr>`).join(''); content=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(d.title||'Transcript')}</title><style>body{font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;line-height:1.65;color:#1a1a1a}h1{margin:0 0 2px}.src{color:#666;margin:0 0 22px;font-size:14px}table{border-collapse:collapse;width:100%}td{vertical-align:top;padding:7px 10px;border-bottom:1px solid #eee}td:first-child{white-space:nowrap}td:first-child a{color:#6d3fe0;text-decoration:none;font-family:ui-monospace,monospace;font-size:13px}td a:hover{text-decoration:underline}</style></head><body><h1>${esc(d.title||'Transcript')}</h1><div class="src">${esc(d.uploader||'')}${d.source?' — <a href="'+escAttr(d.source)+'">'+esc(d.source)+'</a>':''}</div><table>${rows}</table></body></html>`; }
+  saveBlob(content, baseName()+'.'+ext, mime);
+}
+function moreDl(v){ if(!v)return; if(v==='docx') dlDocx(); else dl(v); }
+async function dlDocx(){
+  const d=DATA; if(!d)return;
+  try{
+    const r=await fetch('/api/docx',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:d.title,uploader:d.uploader,source:d.source,text:d.text,segments:d.segments,timestamps:$('tsToggle').checked})});
+    if(!r.ok){ const e=await r.json().catch(()=>({})); showErr(e.error||'Could not build the Word file.'); return; }
+    const blob=await r.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=baseName()+'.docx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  }catch(e){ showErr('Word export failed: '+e.message); }
+}
+
+let AIOUT='';
+async function ai(task){
+  const d=DATA; if(!d)return;
+  const body={task, text:d.text, segments:d.segments, title:d.title, source:d.source};
+  if(task==='repurpose') body.target=$('repTarget').value;
+  if(task==='chat'){ body.question=$('chatq').value.trim(); if(!body.question){ $('chatq').focus(); return; } }
+  $('aistatus').style.display='flex'; $('aiout').style.display='none'; disableAi(true);
+  try{
+    const r=await fetch('/api/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await r.json();
+    if(!j.ok){ AIOUT=''; $('aiout').innerHTML='<p class="aierr">⚠ '+esc(j.error||'AI request failed')+'</p>'; }
+    else{ AIOUT=j.result; $('aiout').innerHTML='<div class="aicard"><button class="aicopy" onclick="copyAi()" title="Copy">📋</button>'+mdLite(j.result)+'</div>'; }
+    $('aiout').style.display='block';
+  }catch(e){ $('aiout').innerHTML='<p class="aierr">⚠ '+esc(e.message)+'</p>'; $('aiout').style.display='block'; }
+  finally{ $('aistatus').style.display='none'; disableAi(false); }
+}
+function disableAi(x){document.querySelectorAll('.ai button,.ai select,.ai input').forEach(el=>el.disabled=x);}
+function copyAi(){ if(!AIOUT)return; navigator.clipboard.writeText(AIOUT); const b=document.querySelector('.aicopy'); if(b){b.textContent='✓';setTimeout(()=>b.textContent='📋',1200);} }
+function mdLite(t){
+  let h=esc(t);
+  h=h.replace(/^### (.*)$/gm,'<h4>$1</h4>').replace(/^## (.*)$/gm,'<h3>$1</h3>').replace(/^# (.*)$/gm,'<h2>$1</h2>');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  h=h.replace(/^\s*[-*] (.*)$/gm,'<li>$1</li>').replace(/(?:<li>[^]*?<\/li>\n?)+/g,m=>'<ul>'+m.replace(/\n/g,'')+'</ul>');
+  h=h.split(/\n{2,}/).map(b=>/^\s*<(h\d|ul|li)/.test(b)?b:'<p>'+b.replace(/\n/g,'<br>')+'</p>').join('');
+  return h;
+}
+</script>
+</body></html>

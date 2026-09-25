@@ -1,0 +1,29 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SCRIBE">
+  <defs>
+    <linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9b7bff"/>
+      <stop offset=".55" stop-color="#6d3fe0"/>
+      <stop offset="1" stop-color="#4b2fc0"/>
+    </linearGradient>
+    <linearGradient id="sw" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#c9b8ff"/>
+      <stop offset="1" stop-color="#34e3ff"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#sg)"/>
+  <rect x="2" y="2" width="60" height="30" rx="17" fill="#ffffff" opacity=".08"/>
+  <!-- waveform: audio in -->
+  <g fill="url(#sw)">
+    <rect x="12" y="27" width="3" height="10" rx="1.5"/>
+    <rect x="17.5" y="22" width="3" height="20" rx="1.5"/>
+    <rect x="43.5" y="22" width="3" height="20" rx="1.5"/>
+    <rect x="49" y="27" width="3" height="10" rx="1.5"/>
+  </g>
+  <!-- microphone: voice -->
+  <g fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round">
+    <rect x="27" y="13" width="10" height="19" rx="5" fill="#ffffff" stroke="none"/>
+    <path d="M22 29 a10 10 0 0 0 20 0"/>
+    <path d="M32 39 v7"/>
+    <path d="M26 46 h12"/>
+  </g>
+</svg>

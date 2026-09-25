@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Whisper model cache
+.cache/
+*.bin
+
+# secrets — never commit the LLM key (lives in an env file on the server)
+ai.env
+*.env
+.env
+
+# scratch / outputs
+sandbox/
+media.*
+*.docx
+*.srt
+*.vtt
+
+.DS_Store
+Thumbs.db
